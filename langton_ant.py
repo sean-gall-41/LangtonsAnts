@@ -1,124 +1,120 @@
-import math
 import pygame
-import numpy as np
+import pygame.mixer
+from pygame.locals import *
 
-# The colors which will be used to color langston's universe
-COLOR_LIST = {'RED':(255,0,0), 'GREEN':(0,255,0), 'GRAY':(211,211,211)}
+window_width = 1050
+window_height = 600
+window_dimension = (window_width, window_height)
+
+DIVISIONS = 20
+
+num_lines_width = window_width // DIVISIONS
+num_lines_height = window_height // DIVISIONS
+
+# 0 == "UP" 1 == "RIGHT" 2 == "DOWN" 3 == "LEFT"
+direction = (0, 1, 2, 3)
+
+COLOR_LIST = {"GREY": (150, 150, 150), "BLACK": (0, 0, 0), "WHITE": (255, 255, 255)}
+
+window = pygame.display.set_mode(window_dimension)
 
 
-class cube(object):
-    def __init__(self, position, color):
-        self.position = position
-        self.color = color
+def generate_lattice(lattice):
+    color = (0, 0, 0)
+    if lattice:
+        color = COLOR_LIST["GREY"]
+    else:
+        color = COLOR_LIST["WHITE"]
+    for i in range(0, window_width + 1, 1):
+        if i % DIVISIONS == 0:
+            pygame.draw.line(window, color, (i, 0), (i, window_height), 1)
 
-    def redraw(self, width, rows, surface):
-        size = width // rows
-        i = self.position[0]
-        j = self.position[1]
-
-        pygame.draw.rect(surface, self.color, (i*size + 1, j*size + 1, size-2, size-2))
+    for i in range(0, window_height + 1, 1):
+        if i % DIVISIONS == 0:
+            pygame.draw.line(window, color, (0, i), (window_width, i), 1)
 
 
-class gameBoard(object):
-    def __init__(self, width, rows, direction=0):
-        """ Initializes the internal rep of the game board
-            while also drawing the gameboard to the screen"""
-        self.width = width
-        self.rows = rows
-        #direction is in set [0,1,2,3]
-        self.direction = direction
+class Env:
+    def __init__(self):
+        self.gen = 0
+        self.case = []
+        self.orientation = direction[3]
+        self.ant = [num_lines_height // 2, num_lines_width // 2]
+        for i in range(num_lines_height):
+            self.case.append([0] * num_lines_width)
 
-        self.size_between = width // rows
+    def is_out_of_bounds(self):
+        if self.ant[0] >= num_lines_height or self.ant[1] >= num_lines_width:
+            return True
+        else:
+            return False
 
-        x = 0
-        y = 0
-        # first initialize the internal gameboard rep
-        gameboard = []
-        for i in range(rows**2):
-            new_cube = cube(np.array([x,y]), COLOR_LIST['GRAY'])
-            gameboard.append(new_cube)
-            x += self.size_between
-            #Test with i % rows == 0?
-            if x % width == 0:
-                x = 0
-                y += self.size_between
+    def update_orientation(self, dir):
+        if dir == direction[1]:
+            self.orientation = (self.orientation + 1) % 4
+        elif dir == direction[3]:
+            self.orientation = (self.orientation - 1) % 4
 
-        self.gameboard = np.asarray(gameboard)
-        self.gameboard = self.gameboard.reshape(rows, rows)
+    def displace_ant(self):
+        if self.orientation == direction[0]:
+            self.ant[0] -= 1
+        elif self.orientation == direction[2]:
+            self.ant[0] += 1
+        elif self.orientation == direction[1]:
+            self.ant[1] += 1
+        elif self.orientation == direction[3]:
+            self.ant[1] -= 1
 
-        # the "ant" will be placed roughly in the center of the gameboard initially
-        self.current_cube = self.gameboard[len(self.gameboard)//2, len(self.gameboard)//2]
-        self.curr_cube_row = len(self.gameboard)//2
-        self.curr_cube_col = len(self.gameboard)//2
+    def increment_gen(self):
+        self.gen += 1
 
-        #now draw the game board
-        self.win = pygame.display.set_mode((width, width))
-        self.win.fill(COLOR_LIST['GRAY'])
-        x = 0
-        y = 0
-        for l in range(self.rows):
-            x += self.size_between
-            y += self.size_between
-            
-            pygame.draw.line(self.win, (0,0,0), (x,0), (x,self.width))
-            pygame.draw.line(self.win, (0,0,0), (0,y), (self.width,y))
+    def operation(self):
+        if self.is_out_of_bounds():
+            return False
+        if self.case[self.ant[0]][self.ant[1]] == 0:
+            self.update_orientation(direction[1])
+            self.case[self.ant[0]][self.ant[1]] = 1
+            pygame.draw.rect(window, COLOR_LIST["BLACK"],
+                (self.ant[1]*DIVISIONS, self.ant[0]*DIVISIONS, DIVISIONS, DIVISIONS))
+        else:
+            self.update_orientation(direction[3])
+            self.case[self.ant[0]][self.ant[1]] = 0
+            pygame.draw.rect(window, COLOR_LIST["WHITE"], 
+                (self.ant[1]*DIVISIONS, self.ant[0]*DIVISIONS, DIVISIONS, DIVISIONS))
+        self.displace_ant()
+        self.increment_gen()
+        pygame.display.set_caption("Langton's Ant generation: " + str(self.gen))
 
-    def update_current_cube(self):
-        # first update color and direction
-        if self.current_cube.color == COLOR_LIST['GRAY']:
-            self.current_cube.color = COLOR_LIST['RED']
-            self.direction = (self.direction - 1) % 4
-        elif self.current_cube.color == COLOR_LIST['RED']:
-            self.current_cube.color = COLOR_LIST['GRAY']
-            self.direction = (self.direction + 1) % 4
-
-        # Now move one "space" in the appropriate direction 
-        if self.direction == 0:
-            self.curr_cube_col -= 1
-        elif self.direction == 1:
-            self.curr_cube_row -= 1
-        elif self.direction == 2:
-            self.curr_cube_col += 1
-        elif self.direction == 3:
-            self.curr_cube_row += 1
-
-        self.current_cube = self.gameboard[self.curr_cube_row, self.curr_cube_col]
-        
-    def redrawWindow(self):
-        """Update the current cube color and all lines"""
-        dist = self.size_between
-        x = 0
-        y = 0
-        for l in range(self.rows):
-            x += dist
-            y += dist
-            
-            pygame.draw.line(self.win, (0,0,0), (x,0), (x,self.width))
-            pygame.draw.line(self.win, (0,0,0), (0,y), (self.width,y))
-
-        for r in range(self.rows):
-            for c in range(self.rows):
-                i = self.gameboard[r,c].position[0]
-                j = self.gameboard[r,c].position[1]
-                pygame.draw.rect(self.win, self.gameboard[r,c].color, (i*dist + 1, 
-                    j*dist + 1, dist-2, dist-2))
-
-        pygame.display.update()
+        return True
 
 
 if __name__ == '__main__':
-    width = 500
-    rows = 20
-    ant_game = gameBoard(width, rows, 0)
-    
-    clock = pygame.time.Clock()
+    env = Env()
+    window.fill(COLOR_LIST["WHITE"])
+    pygame.init()
 
-    i = 0
-    while True:
-        pygame.time.delay(50)
-        clock.tick(10)
-        ant_game.update_current_cube()
-        ant_game.redrawWindow()
-        if i == 50:
-            break
-        i += 1
+    timer = pygame.time.Clock()
+
+    pygame.display.set_caption("Langton's Ant")
+
+    lines = True
+    finished = False
+
+    while not finished:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                finished = True
+            if event.type == KEYDOWN:
+                if event.key == K_q:
+                    finished = True
+                if event.key == K_SPACE:
+                    lines = False if lines else True
+
+        timer.tick(5)
+        
+        generate_lattice(lines)
+        if not env.operation() and end == 0:
+            end = 1
+            print("autoroute créée\nfin du programme")
+
+        pygame.display.flip()

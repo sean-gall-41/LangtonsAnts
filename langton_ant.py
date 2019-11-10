@@ -6,7 +6,7 @@ window_width = 1050
 window_height = 600
 window_dimension = (window_width, window_height)
 
-DIVISIONS = 20
+DIVISIONS = 25
 
 num_lines_width = window_width // DIVISIONS
 num_lines_height = window_height // DIVISIONS
@@ -14,7 +14,8 @@ num_lines_height = window_height // DIVISIONS
 # 0 == "UP" 1 == "RIGHT" 2 == "DOWN" 3 == "LEFT"
 direction = (0, 1, 2, 3)
 
-COLOR_LIST = {"GREY": (150, 150, 150), "BLACK": (0, 0, 0), "WHITE": (255, 255, 255)}
+COLOR_LIST = {"GREY": (150, 150, 150), "BLACK": (0, 0, 0),
+              "WHITE": (255, 255, 255), "RED": (255, 0, 0)}
 
 window = pygame.display.set_mode(window_dimension)
 
@@ -75,15 +76,21 @@ class Env:
             self.update_orientation(direction[1])
             self.case[self.ant[0]][self.ant[1]] = 1
             pygame.draw.rect(window, COLOR_LIST["BLACK"],
-                (self.ant[1]*DIVISIONS, self.ant[0]*DIVISIONS, DIVISIONS, DIVISIONS))
+                             (self.ant[1]*DIVISIONS, self.ant[0]*DIVISIONS,
+                             DIVISIONS, DIVISIONS))
         else:
             self.update_orientation(direction[3])
             self.case[self.ant[0]][self.ant[1]] = 0
-            pygame.draw.rect(window, COLOR_LIST["WHITE"], 
-                (self.ant[1]*DIVISIONS, self.ant[0]*DIVISIONS, DIVISIONS, DIVISIONS))
+            pygame.draw.rect(window, COLOR_LIST["WHITE"],
+                             (self.ant[1]*DIVISIONS, self.ant[0]*DIVISIONS,
+                             DIVISIONS, DIVISIONS))
         self.displace_ant()
+        pygame.draw.rect(window, COLOR_LIST["RED"],
+                         (self.ant[1]*DIVISIONS, self.ant[0]*DIVISIONS,
+                         DIVISIONS, DIVISIONS))
         self.increment_gen()
-        pygame.display.set_caption("Langton's Ant generation: " + str(self.gen))
+        pygame.display.set_caption("Langton's Ant generation: " + //
+                                   str(self.gen))
 
         return True
 
@@ -110,11 +117,10 @@ if __name__ == '__main__':
                 if event.key == K_SPACE:
                     lines = False if lines else True
 
-        timer.tick(5)
-        
+        timer.tick(100)
         generate_lattice(lines)
-        if not env.operation() and end == 0:
-            end = 1
-            print("autoroute créée\nfin du programme")
+        if not env.operation():
+            Finished = True
+            print("Ant encountered wall\nExiting program")
 
         pygame.display.flip()
